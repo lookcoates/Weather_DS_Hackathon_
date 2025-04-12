@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Supaboard</title>
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2601.png" type="image/png">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Include Chart.js -->
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>Weather Supaboard</h1>
+            <p>Last updated: {{ latest_data.date_time }}</p>
+        </header>
+        <!-- <div class="city-selection">
+            <label for="cities">Select Cities:</label>
+            <select id="cities" multiple onchange="updateWeather()">
+                <option value="London">London</option>
+                <option value="New York">New York</option>
+                <option value="Tokyo">Tokyo</option>
+            </select>
+        </div> -->
+        <div class="weather-card">
+            <h2>Current Weather</h2>
+            <div class="metric">
+                <span class="label">Temperature:</span>
+                <span class="value">{{ latest_data.temperature }}°C</span>
+            </div>
+            <div class="metric">
+                <span class="label">Humidity:</span>
+                <span class="value">{{ latest_data.humidity }}%</span>
+            </div>
+            <div class="metric">
+                <span class="label">Wind Speed:</span>
+                <span class="value">{{ latest_data.wind_speed }} m/s</span>
+            </div>
+            <div class="metric">
+                <span class="label">Pressure:</span>
+                <span class="value">{{ latest_data.pressure }} hPa</span>
+            </div>
+        </div>
+        <div class="visualization">
+            <h2>Temperature Trends</h2>
+            <canvas id="temperatureChart"></canvas>
+            <div id="predictions" class="predictions-container"></div>
+        </div>
+    </div>
+    <script>
+        function updateWeather() {
+            const selectedCities = Array.from(document.getElementById('cities').selectedOptions)
+                .map(option => option.value);
+            
+            if (selectedCities.length === 0) return;
+            
+            // Fetch weather data for selected cities
+            fetch('/api/historical?cities=' + selectedCities.join(','))
+                .then(response => response.json())
+                .then(data => {
+                    renderTemperatureChart(data);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fetch historical data from API endpoint
+            fetch('/api/historical')
+                .then(response => response.json())
+                .then(data => {
+                    renderTemperatureChart(data);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+
+            function renderTemperatureChart(data) {
+                const ctx = document.getElementById('temperatureChart').getContext('2d');
+                
+                // Clear previous chart if exists
+                if (window.tempChart) {
+                    window.tempChart.destroy();
+                }
+
+                // Prepare datasets for each city
+                const datasets = [];
+                const colors = ['#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56'];
+                let colorIndex = 0;
+                
+                for (const city in data.data) {
+                    datasets.push({
+                        label: `${city} Temperature (°C)`,
+                        data: data.data[city],
+                        borderColor: colors[colorIndex % colors.length],
+                        tension: 0.1
+                    });
+                    colorIndex++;
+                }
+
+                // Create predictions display
+                const predictionsDiv = document.getElementById('predictions');
+                predictionsDiv.innerHTML = '<h3>Predictions</h3>';
+                
+                for (const city in data.predictions) {
+                    const pred = data.predictions[city];
+                    predictionsDiv.innerHTML += `
+                        <div class="prediction-card">
+                            <h4>${city}</h4>
+                            <p>Temperature: ${pred.temperature.toFixed(1)}°C</p>
+                            <p>Conditions: ${pred.description}</p>
+                        </div>
+                    `;
+                }
+
+                window.tempChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
